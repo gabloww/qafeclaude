@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import type { Session } from '@supabase/supabase-js';
-import { Coffee, ClipboardList, LogOut } from 'lucide-react';
+import { Coffee, ClipboardList, LogOut, Loader2 } from 'lucide-react';
 import { supabase, type Cafe, type Profile } from './lib/supabase';
 import { useRealtime } from './lib/useRealtime';
 import Auth from './components/Auth';
@@ -18,6 +18,7 @@ export default function App() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [profileLoading, setProfileLoading] = useState(false);
   const [authReady, setAuthReady] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
   const [passwordRecovery, setPasswordRecovery] = useState(false);
   const [view, setView] = useState<View>('list');
   const [selectedCafe, setSelectedCafe] = useState<Cafe | null>(null);
@@ -93,10 +94,23 @@ export default function App() {
   }
 
   async function handleSignOut() {
-    await supabase.auth.signOut();
+    setSigningOut(true);
+    // Clear local app state immediately so the UI responds right away,
+    // instead of waiting on a network round-trip to Supabase that might
+    // be slow or unreachable (e.g. during a Supabase outage).
     setSession(null);
     setProfile(null);
     setView('list');
+    try {
+      // scope: 'local' clears this device's session without waiting on
+      // Supabase's server to confirm — the safest choice when Supabase
+      // itself might be degraded, since it can't get stuck waiting.
+      await supabase.auth.signOut({ scope: 'local' });
+    } catch {
+      // Already signed out locally above; a failed server-side call here
+      // doesn't need to block or alarm the user.
+    }
+    setSigningOut(false);
   }
 
   if (!authReady) {
@@ -181,9 +195,10 @@ export default function App() {
             </button>
             <button
               onClick={handleSignOut}
-              className="flex flex-1 flex-col items-center gap-0.5 py-2 text-coffee-400 transition-colors hover:text-error-500"
+              disabled={signingOut}
+              className="flex flex-1 flex-col items-center gap-0.5 py-2 text-coffee-400 transition-colors hover:text-error-500 disabled:opacity-50"
             >
-              <LogOut className="h-5 w-5" />
+              {signingOut ? <Loader2 className="h-5 w-5 animate-spin" /> : <LogOut className="h-5 w-5" />}
               <span className="text-xs font-semibold">Sign Out</span>
             </button>
           </div>
