@@ -24,7 +24,7 @@ export default function App() {
   const [selectedCafe, setSelectedCafe] = useState<Cafe | null>(null);
   const [allCafes, setAllCafes] = useState<Cafe[]>([]);
 
-  const loadProfile = useCallback(async (userId: string, retries = 0) => {
+  const loadProfile = useCallback(async (userId: string, userEmail: string, userFullName: string, retries = 0) => {
     setProfileLoading(true);
     const { data } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
     if (data) {
@@ -32,26 +32,31 @@ export default function App() {
       setProfileLoading(false);
     } else if (retries < 3) {
       // Profile might not be created yet (race with trigger) — retry after delay
-      setTimeout(() => loadProfile(userId, retries + 1), 500 * (retries + 1));
+      setTimeout(() => loadProfile(userId, userEmail, userFullName, retries + 1), 500 * (retries + 1));
     } else {
       // Fallback: create profile manually. Always 'customer' — role
       // changes only ever happen through approve_owner_request now.
-      const fallbackName = (session?.user?.user_metadata?.full_name as string) || '';
       const { data: created } = await supabase.from('profiles').insert({
         id: userId,
-        email: session?.user?.email || '',
-        full_name: fallbackName,
+        email: userEmail || '',
+        full_name: userFullName || '',
         role: 'customer',
       }).select().maybeSingle();
       if (created) setProfile(created as Profile);
       setProfileLoading(false);
     }
-  }, [session]);
+  }, []);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
-      if (data.session) loadProfile(data.session.user.id);
+      if (data.session) {
+        loadProfile(
+          data.session.user.id,
+          data.session.user.email || '',
+          (data.session.user.user_metadata?.full_name as string) || ''
+        );
+      }
       setAuthReady(true);
     });
 
@@ -61,7 +66,7 @@ export default function App() {
       }
       setSession(sess);
       if (sess) {
-        loadProfile(sess.user.id);
+        loadProfile(sess.user.id, sess.user.email || '', (sess.user.user_metadata?.full_name as string) || '');
       } else {
         setProfile(null);
       }
