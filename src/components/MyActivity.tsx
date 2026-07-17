@@ -1,8 +1,9 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Users, Calendar, ShoppingBag, Clock, GraduationCap, Loader2, X, Hash, Inbox, AlertTriangle, Coffee } from 'lucide-react';
+import { Users, Calendar, ShoppingBag, Clock, GraduationCap, Loader2, X, Hash, Inbox, AlertTriangle, Coffee, Store } from 'lucide-react';
 import { supabase, type Cafe, type QueueEntry, type Reservation, type Order } from '../lib/supabase';
 import { formatPrice, formatDate, formatTime, timeAgo } from '../lib/format';
 import { useRealtime } from '../lib/useRealtime';
+import PartnerRequest from './PartnerRequest';
 
 type Props = {
   cafes: Cafe[];
@@ -22,6 +23,7 @@ export default function MyActivity({ cafes, userId }: Props) {
   const [filter, setFilter] = useState<'active' | 'all'>('active');
   const [confirmCancel, setConfirmCancel] = useState<{ type: 'queue' | 'reservation'; id: string; label: string } | null>(null);
   const [canceling, setCanceling] = useState(false);
+  const [showPartnerRequest, setShowPartnerRequest] = useState(false);
 
   const loadActivity = useCallback(async function loadActivity() {
     setError('');
@@ -87,11 +89,23 @@ export default function MyActivity({ cafes, userId }: Props) {
 
   const totalCount = filteredQueue.length + filteredReservations.length + filteredOrders.length;
 
+  if (showPartnerRequest) {
+    return <PartnerRequest onBack={() => setShowPartnerRequest(false)} />;
+  }
+
   return (
     <div className="animate-fade-in px-4 py-6 sm:px-6">
       <div className="mx-auto max-w-3xl">
         <h1 className="font-display text-2xl font-semibold text-coffee-900">My Activity</h1>
         <p className="mt-0.5 text-sm text-coffee-400">Your queues, reservations, and pre-orders — all in one place.</p>
+
+        <button
+          onClick={() => setShowPartnerRequest(true)}
+          className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl border border-accent-200 bg-accent-50 py-3 text-sm font-semibold text-accent-700 transition-all hover:bg-accent-100"
+        >
+          <Store className="h-4 w-4" />
+          Own a café? Become a Partner
+        </button>
 
         {/* Filter toggle */}
         <div className="mt-4 flex gap-2">
